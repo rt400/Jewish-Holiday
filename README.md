@@ -16,7 +16,9 @@ please check it before run it.
 
 Now you need to create folder "holiday" in your HomeAssistant config/custom_components folder
 Copy python file "sensor.py" to the HA config ./custom_components/holiday/ folder.
+
 Now you need to add those lines in configuration.yaml :
+
 ```
 sensor:
   - platform: holiday
