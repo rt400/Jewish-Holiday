@@ -1,0 +1,8 @@
+{
+  "domain": "holiday",
+  "name": "Holidays Times",
+  "documentation": "https://github.com/rt400/Shabbat-Times",
+  "dependencies": [],
+  "codeowners": ["@yuval_mejahez"],
+  "requirements": []
+}
