@@ -1,6 +1,7 @@
 """
-Platform to get Jewish Holiday Times And Holiday information for Home Assistant.
+Platform to get Holiday Times And Holiday information for Home Assistant.
 
+Document will come soon...
 """
 import logging
 import urllib
@@ -96,8 +97,6 @@ class Holiday(Entity):
         self._time_after = time_after
         self.config_path = hass.config.path() + "/custom_components/holiday/"
         self._state = None
-        self.yomtov_db = []
-        self.holiday_db = []
 
     @property
     def name(self):
@@ -136,9 +135,11 @@ class Holiday(Entity):
     async def create_db_file(self):
         """Create the json db."""
         import astral
+        self.yomtov_db = []
+        self.holiday_db = []
         self.set_days()
         self.file_time_stamp = datetime.date.today()
-        convert = {"date": str(self.file_time_stamp)}
+        convert = [{"date": str(self.file_time_stamp), "sunday": str(self.sunday), "saturday": str(self.saturday)}]
         with codecs.open(self.config_path + 'date_update.json', 'w', encoding='utf-8') as outfile:
             json.dump(convert, outfile, skipkeys=False, ensure_ascii=False, indent=4,
                       separators=None, default=None, sort_keys=True)
@@ -158,7 +159,7 @@ class Holiday(Entity):
             for extract_data in holiday_data:
                 if "candles" in extract_data.values():
                     day = datetime.datetime.strptime(extract_data['start'], '%Y-%m-%dT%H:%M:%S').isoweekday()
-                    if day is not 5 and day is not 6 and candles_count is 0:
+                    if day is not 5 and day is not 6:
                         candles_count += 1
                         self.yomtov_db.append(extract_data)
                     elif day is 6 and candles_count is 0:
@@ -174,24 +175,27 @@ class Holiday(Entity):
                         havdalah_count += 1
                         self.yomtov_db.append(extract_data)
                 elif "parashat" not in extract_data.values():
-                    sunset = astral.Location(('', '', 32.0667, 34.7667, 'Asia/Jerusalem'))
+                    sunset = astral.Location(('', '', float(self._latitude), float(self._longitude), 'Asia/Jerusalem'))
                     start = datetime.datetime.strptime(str(extract_data['start'][:10]), '%Y-%m-%d').date() \
                             - datetime.timedelta(days=1)
                     end = datetime.datetime.strptime(str(extract_data['start'][:10]), '%Y-%m-%d').date()
                     extract_data['start'] = str(start) + "T" + str(sunset.sun(start).get('sunset'))[11:19]
                     extract_data['end'] = str(end) + "T" + str(sunset.sun(end).get('sunset'))[11:19]
                     self.holiday_db.append(extract_data)
-            for extract_data in self.yomtov_db:
-                if "havdalah" in extract_data.values() and candles_count is 0:
-                    candles_time = str(datetime.datetime.strptime(extract_data['start'], '%Y-%m-%dT%H:%M:%S')
-                                       - datetime.timedelta(days=1) - datetime.timedelta(minutes=65)).replace(" ", "T")
-                    self.yomtov_db.append({'className': 'candles', 'hebrew': 'הדלקת נרות', 'start': candles_time,
-                                           'allDay': False, 'title': 'הדלקת נרות'})
-                elif "candles" in extract_data.values() and havdalah_count is 0:
-                    havdalah_time = str(datetime.datetime.strptime(extract_data['start'], '%Y-%m-%dT%H:%M:%S')
-                                        + datetime.timedelta(days=1) + datetime.timedelta(minutes=65)).replace(" ", "T")
-                    self.yomtov_db.append({'hebrew': 'הבדלה - 42 דקות', 'start': havdalah_time, 'className': 'havdalah',
-                                           'allDay': False, 'title': 'הבדלה - 42 דקות'})
+            if self.yomtov_db:
+                for extract_data in self.yomtov_db:
+                    if "havdalah" in extract_data.values() and candles_count is 0:
+                        candles_time = str(datetime.datetime.strptime(extract_data['start'], '%Y-%m-%dT%H:%M:%S')
+                                           - datetime.timedelta(days=1) - datetime.timedelta(minutes=65)).replace(" ", "T")
+                        self.yomtov_db.append({'className': 'candles', 'hebrew': 'הדלקת נרות', 'start': candles_time,
+                                               'allDay': False, 'title': 'הדלקת נרות'})
+                    elif "candles" in extract_data.values() and havdalah_count is 0:
+                        havdalah_time = str(datetime.datetime.strptime(extract_data['start'], '%Y-%m-%dT%H:%M:%S')
+                                            + datetime.timedelta(days=1) + datetime.timedelta(minutes=65)).replace(" ", "T")
+                        self.yomtov_db.append({'hebrew': 'הבדלה - 42 דקות', 'start': havdalah_time, 'className': 'havdalah',
+                                               'allDay': False, 'title': 'הבדלה - 42 דקות'})
+            else:
+                self.yomtov_db.append({"status:": "db empty"})
             with codecs.open(self.config_path + 'yomtov_data.json', 'w', encoding='utf-8') as outfile:
                 json.dump(self.yomtov_db, outfile, skipkeys=False, ensure_ascii=False, indent=4,
                           separators=None, default=None, sort_keys=True)
@@ -215,8 +219,9 @@ class Holiday(Entity):
                 self.holiday_db = json.loads(data_file.read())
             with open(self.config_path + 'date_update.json', encoding='utf-8') as data_file:
                 data = json.loads(data_file.read())
-                self.file_time_stamp = datetime.datetime.strptime(
-                    data['date'], '%Y-%m-%d').date()
+                self.file_time_stamp = datetime.datetime.strptime(data[0]['date'], '%Y-%m-%d').date()
+                if self.file_time_stamp != datetime.date.today():
+                    await self.create_db_file()
         elif self.file_time_stamp != datetime.date.today():
             await self.create_db_file()
         await self.get_full_time_in()
@@ -224,7 +229,7 @@ class Holiday(Entity):
 
     @callback
     def set_days(self):
-        """Set the sunday and saturday."""
+        """Set the friday and saturday."""
         weekday = self.set_sunday(datetime.date.today().isoweekday())
         self.sunday = datetime.date.today() + datetime.timedelta(days=weekday)
         self.saturday = datetime.date.today() + datetime.timedelta(
@@ -232,7 +237,7 @@ class Holiday(Entity):
 
     @classmethod
     def set_sunday(cls, day):
-        """Set sunday day."""
+        """Set friday day."""
         switcher = {
             7: 0,  # sunday
             1: -1,  # monday
