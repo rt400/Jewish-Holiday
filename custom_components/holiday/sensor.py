@@ -159,7 +159,7 @@ class Holiday(Entity):
             for extract_data in holiday_data:
                 if "candles" in extract_data.values():
                     day = datetime.datetime.strptime(extract_data['start'], '%Y-%m-%dT%H:%M:%S').isoweekday()
-                    if day is not 5 and day is not 6:
+                    if day is not 5 and day is not 6 and candles_count is 0:
                         candles_count += 1
                         self.yomtov_db.append(extract_data)
                     elif day is 6 and candles_count is 0:
