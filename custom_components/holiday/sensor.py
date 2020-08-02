@@ -157,6 +157,8 @@ class Holiday(Entity):
             havdalah_count = 0
             candles_count = 0
             for extract_data in holiday_data:
+                if "start" in extract_data:
+                    extract_data['start'] = extract_data['start'].replace("+03:00", "").replace("+02:00", "")
                 if "candles" in extract_data.values():
                     day = datetime.datetime.strptime(extract_data['start'], '%Y-%m-%dT%H:%M:%S').isoweekday()
                     if day is not 5 and day is not 6 and candles_count is 0:
@@ -233,7 +235,7 @@ class Holiday(Entity):
         weekday = self.set_sunday(datetime.date.today().isoweekday())
         self.sunday = datetime.date.today() + datetime.timedelta(days=weekday)
         self.saturday = datetime.date.today() + datetime.timedelta(
-            days=weekday + 6)
+            days=weekday + 7)
 
     @classmethod
     def set_sunday(cls, day):
